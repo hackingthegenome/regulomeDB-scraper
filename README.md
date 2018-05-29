@@ -33,7 +33,7 @@ Run the following command:
 python RegulomeDBScraper.py --I (put location of your input file here) --O (output file name here) 
 
 
-For now, make sure your input is in 0-based coordinate format. I am planning to add support for other formats in the future.
+For now, make sure your input is in 0-based coordinate format. I am planning to add support for other formats in the future if the demand is there.
 
 ************
 Other Notes
