@@ -3,25 +3,47 @@
 Created on Mon Nov 14 15:58:11 2016
 
 @author: moizba
+
+This script is designed to analyze large sets of variants by subjecting them to interpretation via
+RegulomeDB, which is unable to handle such massive sets on its own. It appears to only take in about
+1000/session. This script will open a new file (regulome_IDs.txt), then open the input file. It 
+loops through the input file and appends each line into a list of strings called "lines". Once there
+are 101 variants in each chunk, it submits them to regulomeDB using the requests module. This will
+return the text contents of a 'bed' file (chosen for its simplicity to parse). These 'bed' contents
+are then appended to 'File_compiler". Once this has been completed, the script will then loop
+through each chunk in file compiler and using regex, write them in the correct format to our output file.
+
+This specific script has been designed for ZeroCoords input, although support for other forms 
+can be added in the future. 
+
 """
 from optparse import OptionParser
 import requests, re
 
 def submit_regulome(lines):
+    """ Formates the set of SNP data (lines) into a format suitable for RegulomeDB.
+        Sends a query to regulomeDB and returns the input using the results ID
+    """
     d_format = 'bed' #options are 'full', 'gff', or 'bed', bed used due to easiness of parsing
     query = {'data': lines}
-    
-    # DO NOT REQUEST TO PRINT R. TEXT
+  
     r = requests.post('http://www.regulomedb.org/results', query)
     # Need to get sid which is associated with output
-    val = re.findall('name="sid" value="(.*?)"', r.text)
+    sid = re.findall('name="sid" value="(.*?)"', r.text)
 
-    download_file = {'format':d_format,'sid':val}
+    download_file = {'format':d_format,'sid':sid}
     z = requests.post('http://www.regulomedb.org/download', download_file)
     print (z.text)
     return (z.text)
 
 def annotate_variants(input_file, outputfile):
+    
+    """ This will take in the big list of SNPs, break them into subsets of <= 100 lines
+        and pass them into the "submit_regulome" function for annotation. This is due to the inability
+        of regulomeDB to take in querys larger than 100 lines. It will then append the annotations together
+        into a new file.
+        Sends a query to regulomeDB and returns the input using the results ID
+    """
 
     file_compiler = []
     lines = ''
@@ -43,14 +65,10 @@ def annotate_variants(input_file, outputfile):
                 file_compiler.append(submit_regulome(lines))
     
         for chunk in file_compiler:
-            #  chunkcounter = chunkcounter + 1
             for e in str.splitlines(chunk):
-       
            # this grabs the chromosome        
                 chrom = (re.search('(.+?)\t',e)).group(1)
-        
                 if 'n/a' in e: #some variants do not have an associate DBSNP ID
-                    # $ = end of string
                     score =  re.search('\tn/a;(.+?$)',e)
                     # this will get the position coordinates
                     position = (re.search('\t(.+?)\tn/a',e)).group(1).replace('\t','-')
@@ -66,16 +84,18 @@ def annotate_variants(input_file, outputfile):
                     code.write(name + "\t" + score.group(1) +"\t"+ SNP +"\n")
 
 def extract_Options():
+    """ Prompts users to define file locations"""
+    
     parser = OptionParser()
     parser.add_option("--I", dest = "input", 
                       help = "Input file location. Please make sure it is a list of variants in 0-based format", 
                       metavar="FILE", 
                       type = "string", 
-                      default = r"C:\Users\moizba\Documents\Projects\LungCancer\TargetedDataAnalysis\RegulomeDB\Input\zero_coords_target_chr6.txt")
+                      default = r"...\RegulomeDB\Input\zero_coords_target_chr6.txt")
     parser.add_option("--O", dest = "output", help = "Outfile destination",
                       metavar = "FILE", 
                       type = "string", 
-                      default = r"C:\Users\moizba\Documents\Projects\LungCancer\TargetedDataAnalysis\RegulomeDB\Output\Regulome_Scored_Variants.txt")
+                      default = r"....\RegulomeDB\Output\Regulome_Scored_Variants.txt")
     # Format is currently non functional
     parser.add_option("--F", dest = "input_format", 
                       help = "Input file format (dbSNP, 0-based, etc.)", 
